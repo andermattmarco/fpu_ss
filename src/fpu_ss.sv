@@ -51,6 +51,7 @@ module fpu_ss
 #(
     parameter                                 PULP_ZFINX         = 0,
     parameter                                 INPUT_BUFFER_DEPTH = 0,
+    parameter                                 NB_CORES           = 8,
     parameter                                 OUT_OF_ORDER       = 1,
     parameter                                 FORWARDING         = 1,
     parameter fpnew_pkg::fpu_features_t       FPU_FEATURES       = fpu_ss_pkg::FPU_FEATURES,
@@ -60,6 +61,9 @@ module fpu_ss
     input logic clk_i,
     input logic rst_ni,
 
+    //Core ID
+    input  logic [NB_CORES-1:0] core_id,
+    
     // Compressed Interface
     input  logic x_compressed_valid_i,
     output logic x_compressed_ready_o,
@@ -150,7 +154,7 @@ module fpu_ss
   logic                          [ 2:0]   [31:0]  fpu_operands_dec;
   logic                          [ 2:0]   [31:0]  fpu_operands;
   logic                          [ 2:0]   [31:0]  int_operands;
-  logic                          [ 2:0]   [31:0]  fpr_operands;
+  logic          [NB_CORES - 1:0][ 2:0]   [31:0]  fpr_operands;
   logic                          [ 4:0]           rs1;
   logic                          [ 4:0]           rs2;
   logic                          [ 4:0]           rs3;
@@ -159,7 +163,7 @@ module fpu_ss
   logic                          [ 2:0]   [ 4:0]  fpr_raddr;
   logic                          [ 4:0]           fpr_wb_addr;
   logic                          [31:0]           fpr_wb_data;
-  logic                                           fpr_we;
+  logic                          [NB_CORES - 1:0] fpr_we;
 
   // memory buffer signals
   logic                                           mem_push_valid;
@@ -224,6 +228,7 @@ module fpu_ss
   assign fpu_tag_in.addr = rd;
   assign fpu_tag_in.rd_is_fp = rd_is_fp;
   assign fpu_tag_in.id = in_buf_pop_data.id;
+  assign fpu_tag_in.core_id = core_id;
 
   // memory instruction buffer assignment
   assign mem_push_data.id   = in_buf_pop_data.id;
@@ -236,7 +241,7 @@ module fpu_ss
   assign x_mem_req_o.id     = in_buf_pop_data.id;
 
   always_comb begin
-    x_mem_req_o.wdata = fpr_operands[1];
+    x_mem_req_o.wdata = fpr_operands[fpu_tag_in.core_id][1];
     if (fpu_fwd[1]) begin
       x_mem_req_o.wdata = fpu_result;
     end else if (lsu_fwd[1]) begin
@@ -389,12 +394,17 @@ module fpu_ss
   fpu_ss_controller #(
       .PULP_ZFINX(PULP_ZFINX),
       .INPUT_BUFFER_DEPTH(INPUT_BUFFER_DEPTH),
+      .NB_CORES(NB_CORES),
       .OUT_OF_ORDER(OUT_OF_ORDER),
       .FORWARDING(FORWARDING)
   ) fpu_ss_controller_i (
       // Clock and Reset
       .clk_i (clk_i),
       .rst_ni(rst_ni),
+
+      //Core ID
+      .in_core_id_i(fpu_tag_in.core_id),
+      .out_core_id_i(fpu_tag_out.core_id),
 
       // Predecoder
       .in_buf_push_ready_i (in_buf_push_ready),
@@ -511,18 +521,19 @@ module fpu_ss
           fpr_wb_addr = rd;
         end
       end
+      for (genvar i=1; i<NB_CORES + 1; i++) begin
+        fpu_ss_regfile fpu_ss_regfile_i (
+            .clk_i(clk_i),
+            .rst_ni(rst_ni),
 
-      fpu_ss_regfile fpu_ss_regfile_i (
-          .clk_i(clk_i),
-          .rst_ni(rst_ni),
+            .raddr_i(fpr_raddr),
+            .rdata_o(fpr_operands[i]),
 
-          .raddr_i(fpr_raddr),
-          .rdata_o(fpr_operands),
-
-          .waddr_i(fpr_wb_addr),
-          .wdata_i(fpr_wb_data),
-          .we_i   (fpr_we)
-      );
+            .waddr_i(fpr_wb_addr),
+            .wdata_i(fpr_wb_data),
+            .we_i   (fpr_we[i])
+        );
+      end
     end else begin : gen_no_fp_register_file
       assign fpr_operands = int_operands;
     end
@@ -560,7 +571,7 @@ module fpu_ss
           end
         end
         RegA, RegB, RegBRep, RegC, RegDest: begin
-          fpu_operands_dec[i] = fpr_operands[i];
+          fpu_operands_dec[i] = fpr_operands[fpu_tag_in.core_id][i];
           if (fpu_fwd[i] & (fpu_op != fpnew_pkg::ADD)) begin
             fpu_operands_dec[i] = fpu_result;
           end else if (lsu_fwd[i] & (fpu_op != fpnew_pkg::ADD)) begin
