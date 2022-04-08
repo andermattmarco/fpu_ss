@@ -19,6 +19,7 @@ module fpu_ss_wrapper
 #(
     parameter                                 PULP_ZFINX         = 0,
     parameter                                 INPUT_BUFFER_DEPTH = 1,
+    parameter                                 NB_CORES           = 8,
     parameter                                 OUT_OF_ORDER       = 1,
     parameter                                 FORWARDING         = 1,
     parameter fpnew_pkg::fpu_features_t       FPU_FEATURES       = fpu_ss_pkg::FPU_FEATURES,
@@ -27,6 +28,9 @@ module fpu_ss_wrapper
     // clock and reset
     input logic clk_i,
     input logic rst_ni,
+
+    //Core ID
+    input  logic [NB_CORES-1:0] core_id,
 
     // Compressed Interface
     input  logic x_compressed_valid_i,
