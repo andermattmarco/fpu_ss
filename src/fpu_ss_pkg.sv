@@ -24,6 +24,7 @@ package fpu_ss_pkg;
   parameter int          X_RFW_WIDTH = 32;
   parameter logic [31:0] X_MISA      = '0;
   parameter logic [ 1:0] X_ECS_XS    = '0;
+   
 
   typedef struct packed {
     logic [          15:0] instr;
@@ -165,6 +166,7 @@ package fpu_ss_pkg;
     logic [ 4:0] addr;
     logic        rd_is_fp;
     logic [ 3:0] id;
+    logic [ 7:0] core_id;
   } fpu_tag_t;
 
   // -----------
