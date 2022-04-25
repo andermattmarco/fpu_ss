@@ -111,8 +111,8 @@ module fpu_ss_controller
   logic x_mem_req_hs;
 
   //Core ID storage
-  logic [NB_CORES-1:0] out_core_id_d;
-  logic [NB_CORES-1:0] out_core_id_q;
+  //logic [NB_CORES-1:0] out_core_id_d;
+  //logic [NB_CORES-1:0] out_core_id_q;
 
   // status signals and scoreboards
   logic        instr_inflight_d;
@@ -152,8 +152,11 @@ module fpu_ss_controller
   // ----------------
   always_comb begin
     fpr_we_o = 1'b0;
-    if ((fpu_out_valid_i & fpu_out_ready_o & rd_is_fp_i) | (mem_pop_data_i.we & x_mem_result_valid_i) & ~PULP_ZFINX) begin
-      fpr_we_o[out_core_id_d] = 1'b1;
+    if ((fpu_out_valid_i & fpu_out_ready_o & rd_is_fp_i) & ~PULP_ZFINX) begin
+      fpr_we_o[out_core_id_i] = 1'b1;
+    end
+    if ((mem_pop_data_i.we & x_mem_result_valid_i) & ~PULP_ZFINX) begin
+      fpr_we_o[mem_pop_data_i.core_id] = 1'b1;
     end
   end
 
@@ -295,25 +298,15 @@ module fpu_ss_controller
     end
   end
 
-  always_comb begin
-    out_core_id_d = out_core_id_q;
-    if ((out_core_id_d !== out_core_id_i) & ~(out_core_id_i == '0)) begin
-      out_core_id_d = out_core_id_i;
-    end
-    if (out_core_id_d == '0) begin
-      out_core_id_d = in_core_id_i;
-    end
-  end
+
 
   always_ff @(posedge clk_i, negedge rst_ni) begin
     if (~rst_ni) begin
-      out_core_id_q     <= '0;
       instr_inflight_q  <= 1'b0;
       instr_offloaded_q <= 1'b0;
       rd_scoreboard_q   <= '0;
       id_scoreboard_q   <= '0;
     end else begin
-      out_core_id_q     <= out_core_id_d;
       instr_inflight_q  <= instr_inflight_d;
       instr_offloaded_q <= instr_offloaded_d;
       rd_scoreboard_q   <= rd_scoreboard_d;
