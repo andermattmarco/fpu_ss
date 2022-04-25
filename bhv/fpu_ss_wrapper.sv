@@ -31,7 +31,7 @@ module fpu_ss_wrapper
     input logic rst_ni,
 
     //Core ID
-    input  logic [NB_CORES-1:0] core_id_i,
+    input  logic [31:0] core_id_i,
 
     // Compressed Interface
     input  logic x_compressed_valid_i,
