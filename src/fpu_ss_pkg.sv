@@ -104,17 +104,20 @@ package fpu_ss_pkg;
   // Compressed predecoder request type
   typedef struct packed {
     logic [16:0] comp_instr;
+    //logic [7:0] core_id;
   } comp_prd_req_t;
 
   // Compressed predecoder response type
   typedef struct packed {
     logic        accept;
     logic [32:0] decomp_instr;
+    //logic [7:0] core_id;
   } comp_prd_rsp_t;
 
   // Predecoder request type
   typedef struct packed {
     logic [31:0] q_instr_data;
+    //logic [ 7:0] core_id;
   } acc_prd_req_t;
 
   // Predecoder response type
@@ -123,6 +126,7 @@ package fpu_ss_pkg;
     logic       p_is_mem_op;
     logic       p_writeback;
     logic [2:0] p_use_rs;
+    //logic [7:0] core_id;
   } acc_prd_rsp_t;
 
   // Predecoder internal instruction metadata
@@ -154,12 +158,14 @@ package fpu_ss_pkg;
     logic [31:0]      instr_data;
     logic [3:0]       id;
     logic [1:0]       mode;
+    logic [7:0]       core_id;
   } offloaded_data_t;
 
   typedef struct packed {
     logic [ 3:0] id;
     logic [ 4:0] rd;
     logic        we;
+    logic [ 7:0] core_id;
   } mem_metadata_t;
 
   typedef struct packed {
