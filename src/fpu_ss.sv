@@ -63,7 +63,7 @@ module fpu_ss
     input logic rst_ni,
 
     //Core ID
-    input  logic [NB_CORES-1:0] core_id_i,
+    input  logic [31:0] core_id_i,
     
     // Compressed Interface
     input  logic x_compressed_valid_i,
@@ -119,7 +119,7 @@ module fpu_ss
   logic                                           x_issue_ready;
 
   // core_id internal signal
-  logic                        [7:0]              core_id; 
+  logic                        [31:0]              core_id; 
 
   // input stream fifo signals
   offloaded_data_t                                in_buf_push_data;
