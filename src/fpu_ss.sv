@@ -50,6 +50,7 @@ module fpu_ss
     import fpu_ss_pkg::*;
 #(
     parameter                                 PULP_ZFINX         = 0,
+    parameter                                 TinyFPU            = 0,
     parameter                                 INPUT_BUFFER_DEPTH = 0,
     parameter                                 NB_CORES           = 8,
     parameter                                 OUT_OF_ORDER       = 1,
@@ -62,7 +63,7 @@ module fpu_ss
     input logic rst_ni,
 
     //Core ID
-    input  logic [NB_CORES-1:0] core_id,
+    input  logic [NB_CORES-1:0] core_id_i,
     
     // Compressed Interface
     input  logic x_compressed_valid_i,
@@ -116,6 +117,9 @@ module fpu_ss
 
   // issue_interface
   logic                                           x_issue_ready;
+
+  // core_id internal signal
+  logic                        [7:0]              core_id; 
 
   // input stream fifo signals
   offloaded_data_t                                in_buf_push_data;
@@ -213,12 +217,14 @@ module fpu_ss
   assign in_buf_push_data.instr_data = x_issue_req_i.instr;
   assign in_buf_push_data.id = x_issue_req_i.id;
   assign in_buf_push_data.mode = x_issue_req_i.mode;
+  assign in_buf_push_data.core_id = core_id_i;
 
   // instr, operand and address signal assignment
   assign instr = in_buf_pop_data.instr_data;
   assign int_operands[0] = in_buf_pop_data.rs[0];
   assign int_operands[1] = in_buf_pop_data.rs[1];
   assign int_operands[2] = in_buf_pop_data.rs[2];
+  assign core_id = in_buf_pop_data.core_id;
   assign rs1 = instr[19:15];
   assign rs2 = instr[24:20];
   assign rs3 = instr[31:27];
@@ -234,6 +240,7 @@ module fpu_ss
   assign mem_push_data.id   = in_buf_pop_data.id;
   assign mem_push_data.rd   = rd;
   assign mem_push_data.we   = is_load;
+  assign mem_push_data.core_id = core_id;
 
   // memory request signal assignments
   assign x_mem_req_o.mode   = in_buf_pop_data.mode;
@@ -626,7 +633,8 @@ module fpu_ss
   fpnew_top #(
       .Features      (FPU_FEATURES),
       .Implementation(FPU_IMPLEMENTATION),
-      .TagType       (fpu_tag_t)
+      .TagType       (fpu_tag_t),
+      .TinyFPU       (TinyFPU)
   ) i_fpnew_bulk (
       .clk_i         (clk_i),
       .rst_ni        (rst_ni),
