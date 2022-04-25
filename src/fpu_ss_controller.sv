@@ -25,8 +25,8 @@ module fpu_ss_controller
     input logic rst_ni,
 
     //Core ID
-    input  logic [NB_CORES-1:0] in_core_id_i,
-    input  logic [NB_CORES-1:0] out_core_id_i,
+    input  logic [31:0] in_core_id_i,
+    input  logic [31:0] out_core_id_i,
 
     // Predecoder
     input  logic       in_buf_push_ready_i,
@@ -109,10 +109,6 @@ module fpu_ss_controller
   // handshakes
   logic x_result_hs;
   logic x_mem_req_hs;
-
-  //Core ID storage
-  //logic [NB_CORES-1:0] out_core_id_d;
-  //logic [NB_CORES-1:0] out_core_id_q;
 
   // status signals and scoreboards
   logic        instr_inflight_d;
