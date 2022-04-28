@@ -32,6 +32,7 @@ module fpu_ss_wrapper
 
     //Core ID
     input  logic [31:0] core_id_i,
+    output logic [31:0] dest_core_id_o,
 
     // Compressed Interface
     input  logic x_compressed_valid_i,
