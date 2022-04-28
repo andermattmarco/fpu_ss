@@ -48,6 +48,7 @@
 
 module fpu_ss
     import fpu_ss_pkg::*;
+    import fpu_ss_prd_f_pkg::*;
 #(
     parameter                                 PULP_ZFINX         = 0,
     parameter                                 TinyFPU            = 0,
@@ -64,6 +65,7 @@ module fpu_ss
 
     //Core ID
     input  logic [31:0] core_id_i,
+    output logic [31:0] dest_core_id_o,
     
     // Compressed Interface
     input  logic x_compressed_valid_i,
@@ -528,7 +530,7 @@ module fpu_ss
           fpr_wb_addr = rd;
         end
       end
-      for (genvar i=1; i<NB_CORES + 1; i++) begin
+      for (genvar i=0; i<NB_CORES; i++) begin
         fpu_ss_regfile fpu_ss_regfile_i (
             .clk_i(clk_i),
             .rst_ni(rst_ni),
@@ -666,6 +668,7 @@ module fpu_ss
 
   always_comb begin
     x_result_o.data = fpu_result;
+    dest_core_id_o = fpu_tag_out.core_id;
     if (csr_wb & ~fpu_out_valid & csr_wb & ~fpu_out_valid) begin
       x_result_o.data = csr_wb_addr;
     end
