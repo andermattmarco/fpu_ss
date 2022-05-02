@@ -66,6 +66,8 @@ module fpu_ss
     //Core ID
     input  logic [31:0] core_id_i,
     output logic [31:0] dest_core_id_o,
+    output logic [31:0] mem_core_id_o,
+
     
     // Compressed Interface
     input  logic x_compressed_valid_i,
@@ -83,7 +85,7 @@ module fpu_ss
     input  logic x_commit_valid_i,
     input  x_commit_t x_commit_i,
 
-    // Memory Eequest/Response Interface
+    // Memory Request/Response Interface
     output logic x_mem_valid_o,
     input  logic x_mem_ready_i,
     output x_mem_req_t x_mem_req_o,
@@ -214,7 +216,7 @@ module fpu_ss
   assign x_issue_resp_o.exc = '0;
 
   // input buffer signal assignment
-  assign in_buf_push_valid = x_issue_valid_i & x_issue_ready_o;
+  assign in_buf_push_valid = x_issue_valid_i & x_issue_ready_o & x_issue_resp_o.accept;
   assign in_buf_push_data.rs = x_issue_req_i.rs;
   assign in_buf_push_data.instr_data = x_issue_req_i.instr;
   assign in_buf_push_data.id = x_issue_req_i.id;
@@ -227,6 +229,9 @@ module fpu_ss
   assign int_operands[1] = in_buf_pop_data.rs[1];
   assign int_operands[2] = in_buf_pop_data.rs[2];
   assign core_id = in_buf_pop_data.core_id;
+  assign mem_core_id_o = mem_pop_data.core_id;
+
+
   assign rs1 = instr[19:15];
   assign rs2 = instr[24:20];
   assign rs3 = instr[31:27];
@@ -242,7 +247,7 @@ module fpu_ss
   assign mem_push_data.id   = in_buf_pop_data.id;
   assign mem_push_data.rd   = rd;
   assign mem_push_data.we   = is_load;
-  assign mem_push_data.core_id = core_id;
+  assign mem_push_data.core_id = in_buf_pop_data.core_id;
 
   // memory request signal assignments
   assign x_mem_req_o.mode   = in_buf_pop_data.mode;
@@ -250,7 +255,7 @@ module fpu_ss
   assign x_mem_req_o.id     = in_buf_pop_data.id;
 
   always_comb begin
-    x_mem_req_o.wdata = fpr_operands[fpu_tag_in.core_id][1];
+    x_mem_req_o.wdata = fpr_operands[in_buf_pop_data.core_id][1];
     if (fpu_fwd[1]) begin
       x_mem_req_o.wdata = fpu_result;
     end else if (lsu_fwd[1]) begin
@@ -355,10 +360,11 @@ module fpu_ss
   // ------------------------------
   // Memory Instruction Stream FIFO
   // ------------------------------
+ 
   stream_fifo #(
       .FALL_THROUGH(0),
       .DATA_WIDTH  (32),
-      .DEPTH       (3),
+      .DEPTH       (1),
       .T           (mem_metadata_t)
   ) mem_stream_fifo_i (
       .clk_i     (clk_i),
@@ -375,6 +381,7 @@ module fpu_ss
       .valid_o(mem_pop_valid),
       .ready_i(mem_pop_ready)
   );
+
 
   // ------------------
   // Floating-Point CSR
@@ -412,8 +419,9 @@ module fpu_ss
       .rst_ni(rst_ni),
 
       //Core ID
-      .in_core_id_i(fpu_tag_in.core_id),
+      .in_core_id_i(core_id),
       .out_core_id_i(fpu_tag_out.core_id),
+      .core_connected_i(core_id_i),
 
       // Predecoder
       .in_buf_push_ready_i (in_buf_push_ready),
@@ -515,7 +523,7 @@ module fpu_ss
 
       // fp register writeback data mux
       always_comb begin
-        fpr_wb_data = fpu_result;
+       fpr_wb_data  = fpu_result;
         if (x_mem_result_valid_i) begin
           fpr_wb_data = x_mem_result_i.rdata;
         end
@@ -580,7 +588,7 @@ module fpu_ss
           end
         end
         RegA, RegB, RegBRep, RegC, RegDest: begin
-          fpu_operands_dec[i] = fpr_operands[fpu_tag_in.core_id][i];
+          fpu_operands_dec[i] = fpr_operands[core_id][i];
           if (fpu_fwd[i] & (fpu_op != fpnew_pkg::ADD)) begin
             fpu_operands_dec[i] = fpu_result;
           end else if (lsu_fwd[i] & (fpu_op != fpnew_pkg::ADD)) begin
@@ -668,7 +676,12 @@ module fpu_ss
 
   always_comb begin
     x_result_o.data = fpu_result;
-    dest_core_id_o = fpu_tag_out.core_id;
+    if (fpu_out_valid) begin
+      dest_core_id_o = fpu_tag_out.core_id;
+    end
+    else if (x_mem_valid_o) begin
+      dest_core_id_o = in_buf_pop_data.core_id;
+    end
     if (csr_wb & ~fpu_out_valid & csr_wb & ~fpu_out_valid) begin
       x_result_o.data = csr_wb_addr;
     end
@@ -685,6 +698,7 @@ module fpu_ss
       x_result_o.id = csr_wb_id;
     end
   end
+
 
   always_comb begin
     x_result_o.we = 1'b0;

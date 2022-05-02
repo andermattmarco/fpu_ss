@@ -27,6 +27,7 @@ module fpu_ss_controller
     //Core ID
     input  logic [31:0] in_core_id_i,
     input  logic [31:0] out_core_id_i,
+    input  logic [31:0] core_connected_i,
 
     // Predecoder
     input  logic       in_buf_push_ready_i,
@@ -98,6 +99,8 @@ module fpu_ss_controller
 
 );
 
+  // signal for dependency check on fpr_we
+  logic       current_fpr_we;
   // dependencies and forwarding
   logic [2:0] valid_operands;
   logic       dep_rs1;
@@ -147,12 +150,15 @@ module fpu_ss_controller
   // FP Register File
   // ----------------
   always_comb begin
-    fpr_we_o = 1'b0;
+    fpr_we_o = '0;
+    current_fpr_we = 1'b0;
     if ((fpu_out_valid_i & fpu_out_ready_o & rd_is_fp_i) & ~PULP_ZFINX) begin
       fpr_we_o[out_core_id_i] = 1'b1;
+      current_fpr_we = fpr_we_o[out_core_id_i];
     end
     if ((mem_pop_data_i.we & x_mem_result_valid_i) & ~PULP_ZFINX) begin
       fpr_we_o[mem_pop_data_i.core_id] = 1'b1;
+      current_fpr_we = fpr_we_o[mem_pop_data_i.core_id];
     end
   end
 
@@ -170,7 +176,7 @@ module fpu_ss_controller
                      | (dep_rs2_add & ~(fpu_fwd_o[2] | lsu_fwd_o[2]))
                      | (dep_rs3     & ~(fpu_fwd_o[2] | lsu_fwd_o[2]));
   assign dep_rd_o    = rd_scoreboard_q[rd_i] & rd_in_is_fp_i & ~(((fpu_out_valid_i & fpu_out_ready_o) | x_mem_result_valid_i)
-                     & fpr_we_o & (fpr_wb_addr_i == rd_i));
+                     & current_fpr_we & (fpr_wb_addr_i == rd_i));
 
   always_comb begin
     fpu_fwd_o[0] = 1'b0;
@@ -199,7 +205,7 @@ module fpu_ss_controller
   assign x_mem_req_spec_o = 1'b0;  // no speculative memory operations -> hardwire to 0
 
   assign mem_push_valid_o = x_mem_req_hs;
-  assign mem_pop_ready_o = x_mem_result_valid_i;
+  assign mem_pop_ready_o = x_mem_result_valid_i & (mem_pop_data_i.core_id == core_connected_i);
 
   always_comb begin
     x_mem_valid_o = 1'b0;
