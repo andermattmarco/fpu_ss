@@ -1,0 +1,25 @@
+# Copyright 2019 ETH Zurich and University of Bologna.
+# Solderpad Hardware License, Version 0.51, see LICENSE for details.
+# SPDX-License-Identifier: SHL-0.51
+fpu_ss:
+  targets: [
+    rtl,
+    tsmc55,
+    gf22,
+  ]
+  files: [
+    src/fpu_ss_prd_f_pkg.sv,
+    src/fpu_ss_pkg.sv,
+    src/fpu_ss_prd_zfinx_pkg.sv,
+    src/fpu_ss_instr_pkg.sv,
+    src/fpu_ss.sv,
+    src/fpu_ss_compressed_predecoder.sv,
+    src/fpu_ss_controller.sv,
+    src/fpu_ss_csr.sv,
+    src/fpu_ss_decoder.sv,
+    src/fpu_ss_predecoder.sv,
+    src/fpu_ss_regfile.sv,
+    bhv/fpu_ss_tracer.sv,
+    bhv/fpu_ss_wrapper.sv
+  ]
+

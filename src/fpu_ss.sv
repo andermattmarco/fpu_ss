@@ -364,7 +364,7 @@ module fpu_ss
   stream_fifo #(
       .FALL_THROUGH(0),
       .DATA_WIDTH  (32),
-      .DEPTH       (1),
+      .DEPTH       (3),
       .T           (mem_metadata_t)
   ) mem_stream_fifo_i (
       .clk_i     (clk_i),
@@ -524,7 +524,7 @@ module fpu_ss
       // fp register writeback data mux
       always_comb begin
        fpr_wb_data  = fpu_result;
-        if (x_mem_result_valid_i) begin
+        if (x_mem_result_valid_i & mem_pop_ready) begin
           fpr_wb_data = x_mem_result_i.rdata;
         end
       end
@@ -532,7 +532,7 @@ module fpu_ss
       // fp register addr writeback mux
       always_comb begin
         fpr_wb_addr = fpu_tag_out.addr;
-        if (x_mem_result_valid_i) begin
+        if (x_mem_result_valid_i & mem_pop_ready) begin
           fpr_wb_addr = mem_pop_data.rd;
         end else if (~use_fpu & ~fpu_out_valid) begin
           fpr_wb_addr = rd;

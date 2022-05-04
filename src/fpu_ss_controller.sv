@@ -156,7 +156,7 @@ module fpu_ss_controller
       fpr_we_o[out_core_id_i] = 1'b1;
       current_fpr_we = fpr_we_o[out_core_id_i];
     end
-    if ((mem_pop_data_i.we & x_mem_result_valid_i) & ~PULP_ZFINX) begin
+    if ((mem_pop_data_i.we & x_mem_result_valid_i & mem_pop_ready_o) & ~PULP_ZFINX) begin
       fpr_we_o[mem_pop_data_i.core_id] = 1'b1;
       current_fpr_we = fpr_we_o[mem_pop_data_i.core_id];
     end
@@ -192,9 +192,9 @@ module fpu_ss_controller
       fpu_fwd_o[0] = valid_operands[0] & fpu_out_valid_i & fpu_out_ready_o & rd_is_fp_i & rs1_i == fpr_wb_addr_i;
       fpu_fwd_o[1] = valid_operands[1] & fpu_out_valid_i & fpu_out_ready_o & rd_is_fp_i & rs2_i == fpr_wb_addr_i;
       fpu_fwd_o[2] = valid_operands[2] & fpu_out_valid_i & fpu_out_ready_o & rd_is_fp_i & rs3_i == fpr_wb_addr_i;
-      lsu_fwd_o[0] = valid_operands[0] & x_mem_result_valid_i & mem_pop_data_i.we & rs1_i == mem_pop_data_i.rd;
-      lsu_fwd_o[1] = valid_operands[1] & x_mem_result_valid_i & mem_pop_data_i.we & rs2_i == mem_pop_data_i.rd;
-      lsu_fwd_o[2] = valid_operands[2] & x_mem_result_valid_i & mem_pop_data_i.we & rs3_i == mem_pop_data_i.rd;
+      lsu_fwd_o[0] = valid_operands[0] & x_mem_result_valid_i & mem_pop_data_i.we & (mem_pop_data_i.core_id == core_connected_i) & rs1_i == mem_pop_data_i.rd;
+      lsu_fwd_o[1] = valid_operands[1] & x_mem_result_valid_i & mem_pop_data_i.we & (mem_pop_data_i.core_id == core_connected_i) & rs2_i == mem_pop_data_i.rd;
+      lsu_fwd_o[2] = valid_operands[2] & x_mem_result_valid_i & mem_pop_data_i.we & (mem_pop_data_i.core_id == core_connected_i) & rs3_i == mem_pop_data_i.rd;
     end
   end
 
@@ -272,7 +272,7 @@ module fpu_ss_controller
     instr_offloaded_d = instr_offloaded_q;
     if (in_buf_pop_valid_i & x_mem_req_hs) begin
       instr_offloaded_d = 1'b1;
-    end else if (x_mem_result_valid_i) begin
+    end else if (x_mem_result_valid_i ) begin
       instr_offloaded_d = 1'b0;
     end
   end
@@ -284,8 +284,7 @@ module fpu_ss_controller
     end
     if ((fpu_out_ready_o & fpu_out_valid_i) & ~(fpu_in_valid_o & fpu_in_ready_i & fpr_wb_addr_i == rd_i)) begin
       rd_scoreboard_d[fpr_wb_addr_i] = 1'b0;
-    end else if (x_mem_result_valid_i & mem_pop_data_i.we & ~(fpu_in_valid_o & fpu_in_ready_i & rd_in_is_fp_i
-                & (mem_pop_data_i.rd == rd_i))) begin
+    end else if (x_mem_result_valid_i & mem_pop_data_i.we & (mem_pop_data_i.core_id == core_connected_i) & ~(fpu_in_valid_o & fpu_in_ready_i & rd_in_is_fp_i & (mem_pop_data_i.rd == rd_i))) begin
       rd_scoreboard_d[mem_pop_data_i.rd] = 1'b0;
     end
   end
