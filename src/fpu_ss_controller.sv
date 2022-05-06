@@ -156,7 +156,7 @@ module fpu_ss_controller
       fpr_we_o[out_core_id_i] = 1'b1;
       current_fpr_we = fpr_we_o[out_core_id_i];
     end
-    if ((mem_pop_data_i.we & x_mem_result_valid_i & mem_pop_ready_o) & ~PULP_ZFINX) begin
+    else if ((mem_pop_data_i.we & x_mem_result_valid_i & mem_pop_ready_o) & ~PULP_ZFINX) begin
       fpr_we_o[mem_pop_data_i.core_id] = 1'b1;
       current_fpr_we = fpr_we_o[mem_pop_data_i.core_id];
     end
@@ -205,7 +205,7 @@ module fpu_ss_controller
   assign x_mem_req_spec_o = 1'b0;  // no speculative memory operations -> hardwire to 0
 
   assign mem_push_valid_o = x_mem_req_hs;
-  assign mem_pop_ready_o = x_mem_result_valid_i & (mem_pop_data_i.core_id == core_connected_i);
+  assign mem_pop_ready_o = x_mem_result_valid_i;
 
   always_comb begin
     x_mem_valid_o = 1'b0;
@@ -235,11 +235,9 @@ module fpu_ss_controller
   assign fpu_out_ready_o = ~x_mem_result_valid_i;
   always_comb begin
     fpu_in_valid_o = 1'b0;
-    if (use_fpu_i & in_buf_pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | ((x_commit_i.id == fpu_in_id_i)
-       & ~x_commit_i.commit_kill)) & ~dep_rs_o & ~dep_rd_o & (x_issue_ready_i | ~PULP_ZFINX) & OUT_OF_ORDER) begin
+    if (use_fpu_i & in_buf_pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | (~x_commit_i.commit_kill)) & ~dep_rs_o & ~dep_rd_o & (x_issue_ready_i | ~PULP_ZFINX) & OUT_OF_ORDER) begin
       fpu_in_valid_o = 1'b1;
-    end else if (use_fpu_i  & in_buf_pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | ((x_commit_i.id == fpu_in_id_i)
-                & ~x_commit_i.commit_kill)) & ~dep_rs_o & ~dep_rd_o & (fpu_out_valid_i | ~instr_inflight_q) & ~OUT_OF_ORDER) begin
+    end else if (use_fpu_i  & in_buf_pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | (~x_commit_i.commit_kill)) & ~dep_rs_o & ~dep_rd_o & (fpu_out_valid_i | ~instr_inflight_q) & ~OUT_OF_ORDER) begin
       fpu_in_valid_o = 1'b1;
     end
   end
