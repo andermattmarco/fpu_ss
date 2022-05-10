@@ -67,7 +67,7 @@ module fpu_ss
     input  logic [31:0] core_id_i,
     output logic [31:0] dest_core_id_o,
     output logic [31:0] mem_dest_core_id_o,
-    //output logic [31:0] mem_core_id_o,
+    input  logic [31:0] mem_result_core_id_i,
 
     
     // Compressed Interface
@@ -124,7 +124,7 @@ module fpu_ss
   logic                                           x_issue_ready;
 
   // core_id internal signal
-  logic                        [31:0]              core_id; 
+  logic                        [31:0]             core_id; 
 
   // input stream fifo signals
   offloaded_data_t                                in_buf_push_data;
@@ -173,6 +173,7 @@ module fpu_ss
   logic                          [ 4:0]           fpr_wb_addr;
   logic                          [31:0]           fpr_wb_data;
   logic                          [NB_CORES - 1:0] fpr_we;
+  logic                                           instr_inflight_q;
 
   // memory buffer signals
   logic                                           mem_push_valid;
@@ -434,6 +435,7 @@ module fpu_ss
       .in_core_id_i(core_id),
       .out_core_id_i(fpu_tag_out.core_id),
       .core_connected_i(core_id_i),
+      .mem_result_core_id_i(mem_result_core_id_i),
 
       // Predecoder
       .in_buf_push_ready_i (in_buf_push_ready),
@@ -469,6 +471,7 @@ module fpu_ss
       .dep_rs_o(dep_rs),
       .dep_rd_o(dep_rd),
       .x_issue_ready_i(x_issue_ready_o),
+      .instr_inflight_q_o(instr_inflight_q),
 
       // Memory Instruction
       .is_load_i (is_load),
@@ -603,7 +606,7 @@ module fpu_ss
           fpu_operands_dec[i] = fpr_operands[core_id][i];
           if (fpu_fwd[i] & (fpu_op != fpnew_pkg::ADD) & (core_id == core_id_i & core_id_i == fpu_tag_out.core_id)) begin
             fpu_operands_dec[i] = fpu_result;
-          end else if (lsu_fwd[i] & (fpu_op != fpnew_pkg::ADD) & (core_id == core_id_i)) begin
+          end else if (lsu_fwd[i] & (fpu_op != fpnew_pkg::ADD) & (core_id == mem_result_core_id_i)) begin
             fpu_operands_dec[i] = x_mem_result_i.rdata;
           end
           // Replicate if needed
@@ -634,10 +637,10 @@ module fpu_ss
         fpu_operands[2] = int_operands[1];
       end
     end else begin
-      if (lsu_fwd[1] & (fpu_op == fpnew_pkg::ADD) & use_fpu & (core_id == core_id_i)) begin
+      if (lsu_fwd[1] & (fpu_op == fpnew_pkg::ADD) & use_fpu & (core_id == mem_result_core_id_i)) begin
         fpu_operands[1] = x_mem_result_i.rdata;
       end
-      if (lsu_fwd[2] & (fpu_op == fpnew_pkg::ADD) & use_fpu & (core_id == core_id_i)) begin
+      if (lsu_fwd[2] & (fpu_op == fpnew_pkg::ADD) & use_fpu & (core_id == mem_result_core_id_i)) begin
         fpu_operands[2] = x_mem_result_i.rdata;
       end
       if (fpu_fwd[1] & (fpu_op == fpnew_pkg::ADD) & use_fpu & (core_id == core_id_i & core_id_i == fpu_tag_out.core_id)) begin
@@ -736,9 +739,9 @@ module fpu_ss
     mem_pop_valid = '0;
     mem_push_ready = mem_fifo_push_ready[core_id];
     if (x_mem_result_valid_i) begin
-      mem_pop_data = mem_fifo_pop_data[core_id_i];
-      mem_pop_valid = mem_fifo_pop_valid[core_id_i];
-      mem_fifo_pop_ready[core_id_i] = mem_pop_ready;
+      mem_pop_data = mem_fifo_pop_data[mem_result_core_id_i];
+      mem_pop_valid = mem_fifo_pop_valid[mem_result_core_id_i];
+      mem_fifo_pop_ready[mem_result_core_id_i] = mem_pop_ready;
     end
     if (mem_push_valid) begin
       mem_fifo_push_data[mem_push_data.core_id] = mem_push_data;

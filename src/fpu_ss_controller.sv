@@ -28,6 +28,7 @@ module fpu_ss_controller
     input  logic [31:0] in_core_id_i,
     input  logic [31:0] out_core_id_i,
     input  logic [31:0] core_connected_i,
+    input  logic [31:0] mem_result_core_id_i,
 
     // Predecoder
     input  logic       in_buf_push_ready_i,
@@ -63,6 +64,7 @@ module fpu_ss_controller
     output logic                         dep_rs_o,
     output logic                         dep_rd_o,
     input  logic                         x_issue_ready_i,
+    output logic                         instr_inflight_q_o,
 
     // Memory Instruction
     input logic is_load_i,
@@ -177,6 +179,7 @@ module fpu_ss_controller
                      | (dep_rs3     & ~(fpu_fwd_o[2] | lsu_fwd_o[2]));
   assign dep_rd_o    = rd_scoreboard_q[rd_i] & rd_in_is_fp_i & ~(((fpu_out_valid_i & fpu_out_ready_o) | x_mem_result_valid_i)
                      & current_fpr_we & (fpr_wb_addr_i == rd_i));
+  assign instr_inflight_q_o = instr_inflight_q;
 
   always_comb begin
     fpu_fwd_o[0] = 1'b0;
@@ -192,9 +195,9 @@ module fpu_ss_controller
       fpu_fwd_o[0] = valid_operands[0] & fpu_out_valid_i & fpu_out_ready_o & rd_is_fp_i & rs1_i == fpr_wb_addr_i;
       fpu_fwd_o[1] = valid_operands[1] & fpu_out_valid_i & fpu_out_ready_o & rd_is_fp_i & rs2_i == fpr_wb_addr_i;
       fpu_fwd_o[2] = valid_operands[2] & fpu_out_valid_i & fpu_out_ready_o & rd_is_fp_i & rs3_i == fpr_wb_addr_i;
-      lsu_fwd_o[0] = valid_operands[0] & x_mem_result_valid_i & mem_pop_data_i.we & (mem_pop_data_i.core_id == core_connected_i) & rs1_i == mem_pop_data_i.rd;
-      lsu_fwd_o[1] = valid_operands[1] & x_mem_result_valid_i & mem_pop_data_i.we & (mem_pop_data_i.core_id == core_connected_i) & rs2_i == mem_pop_data_i.rd;
-      lsu_fwd_o[2] = valid_operands[2] & x_mem_result_valid_i & mem_pop_data_i.we & (mem_pop_data_i.core_id == core_connected_i) & rs3_i == mem_pop_data_i.rd;
+      lsu_fwd_o[0] = valid_operands[0] & x_mem_result_valid_i & mem_pop_data_i.we & (mem_pop_data_i.core_id == mem_result_core_id_i) & rs1_i == mem_pop_data_i.rd;
+      lsu_fwd_o[1] = valid_operands[1] & x_mem_result_valid_i & mem_pop_data_i.we & (mem_pop_data_i.core_id == mem_result_core_id_i) & rs2_i == mem_pop_data_i.rd;
+      lsu_fwd_o[2] = valid_operands[2] & x_mem_result_valid_i & mem_pop_data_i.we & (mem_pop_data_i.core_id == mem_result_core_id_i) & rs3_i == mem_pop_data_i.rd;
     end
   end
 
@@ -209,7 +212,7 @@ module fpu_ss_controller
 
   always_comb begin
     x_mem_valid_o = 1'b0;
-    if ((is_load_i | is_store_i) & ~dep_rs_o & ~dep_rd_o & in_buf_pop_valid_i & mem_push_ready_i
+    if ((is_load_i | is_store_i) & ~dep_rs_o & ~dep_rd_o & ~instr_offloaded_q & in_buf_pop_valid_i & mem_push_ready_i
        & (x_issue_ready_i | INPUT_BUFFER_DEPTH)) begin
       x_mem_valid_o = 1'b1;
     end
@@ -235,9 +238,9 @@ module fpu_ss_controller
   assign fpu_out_ready_o = ~x_mem_result_valid_i;
   always_comb begin
     fpu_in_valid_o = 1'b0;
-    if (use_fpu_i & in_buf_pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | (~x_commit_i.commit_kill)) & ~dep_rs_o & ~dep_rd_o & (x_issue_ready_i | ~PULP_ZFINX) & OUT_OF_ORDER) begin
+    if (use_fpu_i & in_buf_pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | (~x_commit_i.commit_kill)) & ~dep_rs_o & ~dep_rd_o & (x_issue_ready_i | ~PULP_ZFINX) & OUT_OF_ORDER & ~instr_offloaded_q) begin
       fpu_in_valid_o = 1'b1;
-    end else if (use_fpu_i  & in_buf_pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | (~x_commit_i.commit_kill)) & ~dep_rs_o & ~dep_rd_o & (fpu_out_valid_i | ~instr_inflight_q) & ~OUT_OF_ORDER) begin
+    end else if (use_fpu_i  & in_buf_pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | (~x_commit_i.commit_kill)) & ~dep_rs_o & ~dep_rd_o & (fpu_out_valid_i | (~instr_inflight_q)) & ~OUT_OF_ORDER & ~instr_offloaded_q) begin
       fpu_in_valid_o = 1'b1;
     end
   end
@@ -282,7 +285,7 @@ module fpu_ss_controller
     end
     if ((fpu_out_ready_o & fpu_out_valid_i) & ~(fpu_in_valid_o & fpu_in_ready_i & fpr_wb_addr_i == rd_i)) begin
       rd_scoreboard_d[fpr_wb_addr_i] = 1'b0;
-    end else if (x_mem_result_valid_i & mem_pop_data_i.we & (mem_pop_data_i.core_id == core_connected_i) & ~(fpu_in_valid_o & fpu_in_ready_i & rd_in_is_fp_i & (mem_pop_data_i.rd == rd_i))) begin
+    end else if (x_mem_result_valid_i & mem_pop_data_i.we & (mem_pop_data_i.core_id == mem_result_core_id_i) & ~(fpu_in_valid_o & fpu_in_ready_i & rd_in_is_fp_i & (mem_pop_data_i.rd == rd_i))) begin
       rd_scoreboard_d[mem_pop_data_i.rd] = 1'b0;
     end
   end

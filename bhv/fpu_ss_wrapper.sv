@@ -34,7 +34,7 @@ module fpu_ss_wrapper
     input  logic [31:0] core_id_i,
     output logic [31:0] dest_core_id_o,
     output logic [31:0] mem_dest_core_id_o,
-    //output logic [31:0] mem_core_id_o,
+    input  logic [31:0] mem_result_core_id_i,
 
 
     // Compressed Interface
