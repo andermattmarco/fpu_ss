@@ -339,7 +339,7 @@ module fpu_ss
     end else begin : gen_no_input_stream_fifo
       assign in_buf_pop_data = in_buf_push_data;
       assign x_issue_ready_o = x_issue_ready & ~dep_rs & ~dep_rd; // readiness of FPnew is assumed here
-      assign in_buf_push_ready = 1'b1;
+      assign in_buf_push_ready = in_buf_pop_ready;
       assign in_buf_pop_valid = x_issue_valid_i;
     end
   endgenerate
@@ -425,7 +425,8 @@ module fpu_ss
       .INPUT_BUFFER_DEPTH(INPUT_BUFFER_DEPTH),
       .NB_CORES(NB_CORES),
       .OUT_OF_ORDER(OUT_OF_ORDER),
-      .FORWARDING(FORWARDING)
+      .FORWARDING(FORWARDING),
+      .TinyFPU(TinyFPU)
   ) fpu_ss_controller_i (
       // Clock and Reset
       .clk_i (clk_i),
@@ -691,6 +692,8 @@ module fpu_ss
 
   always_comb begin
     x_result_o.data = fpu_result;
+    dest_core_id_o = '0;
+    mem_dest_core_id_o = '0;
     if (fpu_out_valid) begin
       dest_core_id_o = fpu_tag_out.core_id;
     end
