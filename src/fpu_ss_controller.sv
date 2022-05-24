@@ -18,7 +18,8 @@ module fpu_ss_controller
     parameter INPUT_BUFFER_DEPTH = 0,
     parameter NB_CORES           = 8,
     parameter OUT_OF_ORDER = 1,
-    parameter FORWARDING = 1
+    parameter FORWARDING = 1,
+    parameter TinyFPU = 0
 ) (
     // Clock and Reset
     input logic clk_i,
@@ -143,7 +144,10 @@ module fpu_ss_controller
   // ------------
   always_comb begin
     in_buf_pop_ready_o = 1'b0;
-    if ((fpu_in_valid_o & fpu_in_ready_i) | (x_result_hs & csr_instr_i) | x_mem_req_hs) begin
+    if (((fpu_in_valid_o & fpu_in_ready_i) | (x_result_hs & csr_instr_i) | x_mem_req_hs) & INPUT_BUFFER_DEPTH) begin
+      in_buf_pop_ready_o = 1'b1;
+    end
+    else if((fpu_in_valid_o & fpu_in_ready_i) | (x_result_hs & csr_instr_i) | x_mem_req_hs | ~instr_offloaded_q)begin
       in_buf_pop_ready_o = 1'b1;
     end
   end
@@ -240,7 +244,9 @@ module fpu_ss_controller
     fpu_in_valid_o = 1'b0;
     if (use_fpu_i & in_buf_pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | (~x_commit_i.commit_kill)) & ~dep_rs_o & ~dep_rd_o & (x_issue_ready_i | ~PULP_ZFINX) & OUT_OF_ORDER & ~instr_offloaded_q) begin
       fpu_in_valid_o = 1'b1;
-    end else if (use_fpu_i  & in_buf_pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | (~x_commit_i.commit_kill)) & ~dep_rs_o & ~dep_rd_o & (fpu_out_valid_i | (~instr_inflight_q)) & ~OUT_OF_ORDER & ~instr_offloaded_q) begin
+    end else if (use_fpu_i  & in_buf_pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | (~x_commit_i.commit_kill)) & ~dep_rs_o & ~dep_rd_o & (fpu_out_valid_i | (~instr_inflight_q)) & ~OUT_OF_ORDER & ~instr_offloaded_q & ~TinyFPU) begin
+      fpu_in_valid_o = 1'b1;
+    end else if (use_fpu_i  & in_buf_pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | (~x_commit_i.commit_kill)) & ~dep_rs_o & ~dep_rd_o & (fpu_out_valid_i | (~instr_inflight_q)) & ~OUT_OF_ORDER & ~instr_offloaded_q & fpu_in_ready_i & TinyFPU) begin
       fpu_in_valid_o = 1'b1;
     end
   end
