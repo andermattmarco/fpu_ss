@@ -144,12 +144,14 @@ module fpu_ss_controller
   // ------------
   always_comb begin
     in_buf_pop_ready_o = 1'b0;
-    if (((fpu_in_valid_o & fpu_in_ready_i) | (x_result_hs & csr_instr_i) | x_mem_req_hs) & INPUT_BUFFER_DEPTH) begin
+    if (((fpu_in_valid_o & fpu_in_ready_i) | (x_result_hs & csr_instr_i) | x_mem_req_hs) & (INPUT_BUFFER_DEPTH > 0)) begin
       in_buf_pop_ready_o = 1'b1;
     end
-    else if((fpu_in_valid_o & fpu_in_ready_i) | (x_result_hs & csr_instr_i) | x_mem_req_hs | ~instr_offloaded_q)begin
+    
+    else if((fpu_in_valid_o & fpu_in_ready_i) | (x_result_hs & csr_instr_i) | x_mem_req_hs | ~instr_offloaded_q & (INPUT_BUFFER_DEPTH == 0))begin
       in_buf_pop_ready_o = 1'b1;
     end
+    
   end
 
   // ----------------
