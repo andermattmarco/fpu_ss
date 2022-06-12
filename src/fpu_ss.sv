@@ -371,8 +371,7 @@ module fpu_ss
   // ------------------------------
   // Memory Instruction Stream FIFO
   // ------------------------------
-  generate
-  for (genvar i=0; i<NB_CORES; i++) begin
+
     stream_fifo #(
         .FALL_THROUGH(0),
         .DATA_WIDTH  (32),
@@ -385,16 +384,14 @@ module fpu_ss
         .testmode_i(1'b0),
         .usage_o   (  /* unused */),
 
-        .data_i (mem_fifo_push_data[i]),
-        .valid_i(mem_fifo_push_valid[i]),
-        .ready_o(mem_fifo_push_ready[i]),
+        .data_i (mem_push_data),
+        .valid_i(mem_push_valid),
+        .ready_o(mem_push_ready),
 
-        .data_o (mem_fifo_pop_data[i]),
-        .valid_o(mem_fifo_pop_valid[i]),
-        .ready_i(mem_fifo_pop_ready[i])
+        .data_o (mem_pop_data),
+        .valid_o(mem_pop_valid),
+        .ready_i(mem_pop_ready)
   );
-  end 
-  endgenerate
 
   // ------------------
   // Floating-Point CSR
@@ -734,23 +731,5 @@ module fpu_ss
     end
   end
 
-  always_comb begin
-    mem_fifo_push_data = '0;
-    mem_fifo_push_valid = '0;
-    mem_fifo_pop_ready = '0;
-    mem_pop_data = '0;
-    mem_pop_valid = '0;
-    mem_push_ready = mem_fifo_push_ready[core_id];
-    if (x_mem_result_valid_i) begin
-      mem_pop_data = mem_fifo_pop_data[mem_result_core_id_i];
-      mem_pop_valid = mem_fifo_pop_valid[mem_result_core_id_i];
-      mem_fifo_pop_ready[mem_result_core_id_i] = mem_pop_ready;
-    end
-    if (mem_push_valid) begin
-      mem_fifo_push_data[mem_push_data.core_id] = mem_push_data;
-      mem_fifo_push_valid[mem_push_data.core_id] = mem_push_valid;
-      mem_push_ready = mem_fifo_push_ready[mem_push_data.core_id];
-    end
-  end
 
 endmodule  // fpu_ss
